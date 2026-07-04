@@ -42,6 +42,25 @@ const shuffle = (arr) => {
 const normalizeIp = (s) => s.trim().replace(/\s+/g, "");
 const isValidIp = (s) =>
   /^(\d{1,3}\.){3}\d{1,3}$/.test(s) && s.split(".").every((o) => +o >= 0 && +o <= 255);
+const formatIpInput = (raw) => {
+  const chars = raw.replace(/[^\d.]/g, "");
+  const octets = [];
+  let cur = "";
+  for (const ch of chars) {
+    if (octets.length === 4) break;
+    if (ch === ".") {
+      if (cur !== "") { octets.push(cur); cur = ""; }
+    } else {
+      cur += ch;
+      if (cur.length === 3) { octets.push(cur); cur = ""; }
+    }
+  }
+  if (cur !== "" && octets.length < 4) octets.push(cur);
+  const capped = octets.slice(0, 4).map((o) => String(Math.min(+o, 255)));
+  let out = capped.join(".");
+  if (capped.length > 0 && capped.length < 4 && capped[capped.length - 1].length === 3) out += ".";
+  return out;
+};
 
 /* random routable-ish IPs, avoiding 127 unless we want the loopback trap */
 const randomIp = ({ allowSpecial = true } = {}) => {
@@ -191,6 +210,7 @@ function BitBoundary({ cidr, ip }) {
               return (
                 <span
                   key={bi}
+                  className="og-bitcell"
                   title={isNet ? "network bit" : "host bit"}
                   style={{
                     width: 20,
@@ -399,10 +419,10 @@ export default function SubnetGame({ onRoundEnd }) {
       </div>
 
       <p style={{ color: C.dim, marginTop: 22, fontSize: 14 }}>{q.prompt}</p>
-      <div style={subject}>{q.subject}</div>
+      <div className="og-subject" style={subject}>{q.subject}</div>
 
       {q.kind === "choice" ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 18 }}>
+        <div className="og-choices">
           {q.options.map((opt) => {
             const isAnswer = opt === q.answer;
             const isChosen = opt === chosen;
@@ -437,7 +457,10 @@ export default function SubnetGame({ onRoundEnd }) {
             ref={inputRef}
             value={textVal}
             disabled={reveal}
-            onChange={(e) => setTextVal(e.target.value)}
+            inputMode="numeric"
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(e) => setTextVal(formatIpInput(e.target.value))}
             onKeyDown={(e) => e.key === "Enter" && textVal && grade(textVal)}
             placeholder={q.placeholder}
             style={{ ...input, marginTop: 0, flex: 1, fontFamily: "ui-monospace, Menlo, monospace" }}
@@ -505,8 +528,16 @@ const Shell = ({ children, wide }) => (
       *{box-sizing:border-box}
       button:focus-visible,input:focus-visible{outline:2px solid ${C.focus};outline-offset:2px}
       @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+      .og-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+      @media (max-width:560px){
+        .og-shell{padding:20px!important}
+        .og-choices{grid-template-columns:1fr!important}
+        .og-bitcell{width:16px!important;height:22px!important;font-size:11px!important}
+        .og-subject{font-size:22px!important;word-break:break-word}
+      }
     `}</style>
     <div
+      className="og-shell"
       style={{
         width: "100%",
         maxWidth: wide ? 620 : 520,
